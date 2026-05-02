@@ -52,58 +52,58 @@ function initializeDatabase() {
     
     // SQL query to create parking_permits table
     $sql_parking = "CREATE TABLE IF NOT EXISTS parking_permits (
-        id INT AUTO_INCREMENT PRIMARY KEY,              // Unique permit ID
-        permit_number VARCHAR(50) UNIQUE NOT NULL,      // Unique permit identifier
-        name VARCHAR(100) NOT NULL,                     // Permit holder's name
-        age INT NOT NULL,                               // Permit holder's age
-        type ENUM('student', 'staff', 'visitor') NOT NULL, // Permit type
-        price DECIMAL(10,2) NOT NULL,                   // Permit price
-        issue_date DATETIME NOT NULL,                   // Date permit was issued
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP  // Record creation timestamp
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        permit_number VARCHAR(50) UNIQUE NOT NULL,
+        name VARCHAR(100) NOT NULL,
+        age INT NOT NULL,
+        type ENUM('student', 'staff', 'visitor') NOT NULL,
+        price DECIMAL(10,2) NOT NULL,
+        issue_date DATETIME NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )";
     
     // SQL query to create library_users table
     $sql_users = "CREATE TABLE IF NOT EXISTS library_users (
-        id INT AUTO_INCREMENT PRIMARY KEY,              // Unique user ID
-        user_uid VARCHAR(50) UNIQUE NOT NULL,           // Unique user identifier
-        name VARCHAR(100) NOT NULL,                     // User's full name
-        email VARCHAR(100) NOT NULL,                    // User's email address
-        join_date DATE NOT NULL,                        // Date user joined
-        total_fines DECIMAL(10,2) DEFAULT 0,            // Accumulated fines
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP  // Record creation timestamp
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_uid VARCHAR(50) UNIQUE NOT NULL,
+        name VARCHAR(100) NOT NULL,
+        email VARCHAR(100) NOT NULL,
+        join_date DATE NOT NULL,
+        total_fines DECIMAL(10,2) DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )";
     
     // SQL query to create borrowed_books table
     $sql_books = "CREATE TABLE IF NOT EXISTS borrowed_books (
-        id INT AUTO_INCREMENT PRIMARY KEY,              // Unique borrowing record ID
-        user_id INT NOT NULL,                           // Reference to library user
-        book_uid VARCHAR(50) UNIQUE NOT NULL,           // Unique book identifier
-        title VARCHAR(200) NOT NULL,                    // Book title
-        category ENUM('textbook', 'journal', 'reference') NOT NULL, // Book category
-        borrow_date DATE NOT NULL,                      // Date book was borrowed
-        due_date DATE NOT NULL,                         // Date book is due
-        return_date DATE NULL,                          // Date book was returned (NULL if not returned)
-        status ENUM('borrowed', 'returned') DEFAULT 'borrowed', // Current status
-        fine DECIMAL(10,2) DEFAULT 0,                   // Fine amount if applicable
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, // Record creation timestamp
-        FOREIGN KEY (user_id) REFERENCES library_users(id) ON DELETE CASCADE // Foreign key constraint
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        book_uid VARCHAR(50) UNIQUE NOT NULL,
+        title VARCHAR(200) NOT NULL,
+        category ENUM('textbook', 'journal', 'reference') NOT NULL,
+        borrow_date DATE NOT NULL,
+        due_date DATE NOT NULL,
+        return_date DATE NULL,
+        status ENUM('borrowed', 'returned') DEFAULT 'borrowed',
+        fine DECIMAL(10,2) DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES library_users(id) ON DELETE CASCADE
     )";
     
     // SQL query to create students table for performance tracking
     $sql_students = "CREATE TABLE IF NOT EXISTS students (
-        id INT AUTO_INCREMENT PRIMARY KEY,              // Unique student ID
-        student_number VARCHAR(50) UNIQUE NOT NULL,     // Unique student number
-        name VARCHAR(100) NOT NULL,                     // Student's full name
-        mark1 DECIMAL(5,2) NOT NULL,                    // First subject mark
-        mark2 DECIMAL(5,2) NOT NULL,                    // Second subject mark
-        mark3 DECIMAL(5,2) NOT NULL,                    // Third subject mark
-        mark4 DECIMAL(5,2) NOT NULL,                    // Fourth subject mark
-        mark5 DECIMAL(5,2) NOT NULL,                    // Fifth subject mark
-        mark6 DECIMAL(5,2) NOT NULL,                    // Sixth subject mark
-        average DECIMAL(5,2) NOT NULL,                  // Calculated average
-        result ENUM('Distinction', 'Pass', 'Fail') NOT NULL, // Final result
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, // Record creation timestamp
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP // Last update timestamp
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        student_number VARCHAR(50) UNIQUE NOT NULL,
+        name VARCHAR(100) NOT NULL,
+        mark1 DECIMAL(5,2) NOT NULL,
+        mark2 DECIMAL(5,2) NOT NULL,
+        mark3 DECIMAL(5,2) NOT NULL,
+        mark4 DECIMAL(5,2) NOT NULL,
+        mark5 DECIMAL(5,2) NOT NULL,
+        mark6 DECIMAL(5,2) NOT NULL,
+        average DECIMAL(5,2) NOT NULL,
+        result ENUM('Distinction', 'Pass', 'Fail') NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     )";
     
     // Execute all SQL queries
@@ -490,19 +490,39 @@ function getLibraryStats() {
 
 /**
  * Calculate average of marks array
+ * 
+ * Filters input array to include only valid numeric marks within [0,100] range.
+ * Handles edge cases including empty arrays and all-invalid mark sets by
+ * returning 0.0 instead of attempting division by zero.
+ * 
  * @param array $marks Array of marks
- * @return float Calculated average
+ * @return float Calculated average, or 0.0 if no valid marks exist
  */
 function calculateAverage($marks) {
-    // Return 0 if no marks provided
-    if (empty($marks)) return 0;
+    // Guard clause: return 0 if the input array is empty
+    // This handles the case where an empty form is submitted
+    if (empty($marks)) {
+        return 0.0;
+    }
     
     // Filter out invalid marks (non-numeric or out of range)
+    // Only marks that are numeric AND between 0 and 100 inclusive are kept
+    // Non-numeric strings, null values, and out-of-range numbers are excluded
     $valid_marks = array_filter($marks, function($mark) {
         return is_numeric($mark) && $mark >= 0 && $mark <= 100;
     });
     
-    // Calculate and return average
+    // Guard clause: return 0 if no valid marks remain after filtering
+    // This prevents a DivisionByZeroError when all marks are invalid
+    // (e.g., all non-numeric strings, all out-of-range, or mixed invalid types)
+    if (count($valid_marks) === 0) {
+        return 0.0;
+    }
+    
+    // Calculate and return the arithmetic mean of valid marks
+    // array_sum() totals all valid mark values
+    // count() provides the divisor (number of valid marks)
+    // Division always produces a float result in PHP
     return array_sum($valid_marks) / count($valid_marks);
 }
 
